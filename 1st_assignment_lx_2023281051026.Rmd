@@ -1,0 +1,221 @@
+---
+title: "第一次作业"
+author:
+  - 龙昕
+documentclass: ctexart
+keywords:
+  - 中文
+  - R Markdown
+output:
+  rticles::ctex:
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+---
+
+
+```{r setup}
+#options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
+# install packages
+#install.packages('tidyverse')
+#install.packages('kableExtra')
+#install.packages('lubridate')
+#install.packages('scales')
+#install.packages('plotly')
+#install.packages('patchwork')
+#install.packages('ggrepel')
+#install.packages('rstatix')
+#install.packages('showtext')
+
+#load library
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(scales)
+library(plotly)
+library(patchwork)
+library(ggrepel)
+library(rstatix)
+library(showtext)
+showtext.auto(enable = TRUE)
+
+```
+
+# 你的主要发现
+
+1. 靠近地铁的房屋单价比不靠近地铁的房屋单价高
+
+2. 房屋的楼层越高，房屋的单价越贵，但对于超过50层的情况则相反
+  
+3. 平房的房屋单价最低，板塔结合的房屋单价最高
+
+
+# 数据介绍
+
+本报告**链家**数据获取方式如下：
+    
+报告人在2023年9月12日获取了[链家武汉二手房网站](https://wh.lianjia.com/ershoufang/)数据。
+    
+- 链家二手房网站默认显示100页，每页30套房产，因此本数据包括3000套房产信息；
+    
+- 数据包括了页面可见部分的文本信息，具体字段及说明见作业说明。
+
+ **说明：**数据仅用于教学；由于不清楚链家数据的展示规则，因此数据可能并不是武汉二手房市场的随机抽样，结论很可能有很大的偏差，甚至可能是错误的。
+    
+```{r}
+# 载入数据和预处理
+Sys.setlocale(category = "LC_ALL", locale = "en_US.UTF-8")
+
+
+lj<- read_csv("D:/R/document/git/1st_assignment_eda-xl-whuniversity/data/2023-09-12_cleaned.csv")
+
+
+theme_set(theme(text = element_text(family="Songti SC",size = 10))) #这里family设置成你系统中的中文字体名
+
+
+```
+
+# 数据概览
+
+数据表（lj)共包括`r names(lj)`等`r ncol(lj)`个变量,共`r nrow(lj)`行。表的前10行示例如下：
+
+```{r}
+lj %>% 
+  head(10) %>%
+  kable(caption = "武汉链家二手房") %>% 
+  kable_styling()
+```
+
+各变量的简短信息：
+```{r}
+glimpse(lj)
+```
+
+各变量的简短统计：
+```{r}
+summary(lj)
+```
+
+可以看到：
+
+- 房屋总价的均值为155.9万元
+
+- 最贵的房屋总价为1380万元
+ 
+- 最贵的房屋单价为44656元每平方米
+
+# 探索性分析
+
+## 变量房屋总价的数值描述与图形
+
+```{r}
+lj %>%
+  ggplot(aes(price_ttl)) +
+  geom_boxplot()
+```
+
+发现：
+
+- 绝大部分房屋总价都在500w之内
+- 只有极少数房屋总价超过1000w
+
+## 变量房间数的数值描述与图形
+
+```{r}
+lj %>%
+  count(bedrooms) %>%
+  ggplot(aes(bedrooms,n)) +
+  geom_line()
+```
+
+发现：
+
+- 三间卧室的房子在售的数量最多
+
+- 在售的房子最多有7间卧室
+
+## 变量单价，朝向与面积的数值描述与图形
+```{r}
+lj %>%
+  ggplot(aes(building_area, price_sqm, color = directions1)) +
+  geom_point() +
+  geom_smooth()
+```
+
+发现：
+
+- 朝南的建筑单价就较高
+
+- 朝南的建筑比较多
+
+## 靠近地铁的房价比不靠近地铁的房价更高
+
+```{r}
+temp <- 
+  filter(lj, near_subway == '近地铁'|is.na(near_subway))%>% 
+  group_by(near_subway) %>%
+  summarize(count = n(),
+            m_price = mean(price_sqm, na.rm = TRUE),
+  )
+
+temp %>%
+  ggplot(aes(x = near_subway, y = m_price)) +
+  geom_col()
+```
+
+发现：
+
+- 近地铁的房屋单价比远离地铁的房屋单价更高
+
+
+## 房屋单价跟楼层间的关系
+
+```{r}
+temp2 <- lj %>% 
+  group_by(property_t_height) %>%
+  summarize(count = n(),
+            ttl = mean(price_sqm, na.rm = TRUE),
+  )
+
+temp2 %>%
+  ggplot(aes(x = property_t_height, y = ttl)) +
+  geom_point() +
+  geom_smooth()
+```
+
+
+发现：
+
+- 1-15层楼，房屋单价并没随着层数的递增而增加
+
+- 20-50楼层越高，房屋单价往往越高
+
+- 超过50层楼，房屋单价在下降
+
+## 房屋类型对房屋单价的影响
+
+```{r}
+temp3 <- lj %>% 
+  group_by(property_style) %>%
+  summarize(count = n(),
+            ttl = mean(price_sqm, na.rm = TRUE),
+  )
+
+temp3 %>%
+  ggplot(aes(x = property_style, y = ttl)) +
+  geom_col()
+```
+
+发现：
+
+- 板塔结合的房屋单价最高
+
+- 平房房屋单价最低
+
+---
+
+# 发现总结
+
+武汉市在售房屋均价不超过200w，房屋绝大多数是朝南的。房屋的单价跟是否靠近地铁有直接联系。50层以下，楼层高度越高，房屋单价越高。50层以上，则不适用这个规则。板塔结合的房屋单价最高，平房房屋单价最低。
+
